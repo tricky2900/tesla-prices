@@ -1,0 +1,40 @@
+# GitHub Actions workflow — save as .github/workflows/daily_scrape.yml in a
+# (private) repo containing scraper.py, export_analysis.py, and config.py.
+# Runs daily at 06:00 UTC, commits the updated database + Excel export back
+# to the repo so you can download / sync them into your model.
+
+name: Daily Tesla price pull
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}      # allows manual runs from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests pandas openpyxl
+
+      - name: Run scraper
+        run: python scraper.py
+
+      - name: Export analysis workbook
+        run: python export_analysis.py
+
+      - name: Commit results
+        run: |
+          git config user.name "price-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add tesla_prices.db tesla_price_analysis.xlsx scraper.log
+          git commit -m "Daily price pull $(date -u +%F)" || echo "No changes"
+          git push
